@@ -1,27 +1,42 @@
-let target = {
-    lat: 12.9716,
-    lon: 77.5946
-};
+let target = { lat: 12.9716, lon: 77.5946 };
 
-function startNavigation() {
-    document.getElementById("status").innerText = "Navigation Started...";
+async function startNavigation() {
+
+    let place = document.getElementById("destination").value;
+
+    if (!place) {
+        alert("Enter a location");
+        return;
+    }
+
+    try {
+        let res = await fetch(`https://nominatim.openstreetmap.org/search?format=json&q=${place}`);
+        let data = await res.json();
+
+        if (data.length > 0) {
+            target.lat = parseFloat(data[0].lat);
+            target.lon = parseFloat(data[0].lon);
+
+            document.getElementById("status").innerText =
+                `Destination set: ${place}`;
+        } else {
+            alert("Location not found");
+        }
+
+    } catch (err) {
+        console.error(err);
+    }
 }
 
 function enableAR() {
 
     document.getElementById("arScene").style.display = "block";
-    document.getElementById("status").innerText = "AR Mode Enabled";
 
     const arrow = document.querySelector("#arrow");
 
-    // Always visible (for laptop/demo)
-    arrow.setAttribute("position", {
-        x: 0,
-        y: 1,
-        z: -3
-    });
+    // Always visible
+    arrow.setAttribute("position", "0 1 -3");
 
-    // Try GPS (will work better on mobile)
     if (navigator.geolocation) {
 
         navigator.geolocation.watchPosition(position => {
@@ -32,18 +47,25 @@ function enableAR() {
             let dLat = target.lat - userLat;
             let dLon = target.lon - userLon;
 
-            // Controlled movement (not too far)
+            let angle = Math.atan2(dLon, dLat) * (180 / Math.PI);
+
+            // Rotate clearly
+            arrow.setAttribute("rotation", `0 ${angle} 0`);
+
+            // Move left-right so it's visible
             arrow.setAttribute("position", {
-                x: dLon * 10,
+                x: Math.sin(angle * Math.PI/180) * 1.5,
                 y: 1,
-                z: -3 + (dLat * 10)
+                z: -3
             });
 
+            let distance = Math.sqrt(dLat*dLat + dLon*dLon) * 111000;
+
             document.getElementById("status").innerText =
-                `Navigating... Lat: ${userLat.toFixed(4)} Lon: ${userLon.toFixed(4)}`;
+                `Direction: ${angle.toFixed(1)}° | Distance: ${Math.round(distance)}m`;
 
         }, () => {
-            console.log("GPS not available");
+            document.getElementById("status").innerText = "GPS not working";
         });
     }
 }
